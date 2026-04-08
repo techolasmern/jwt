@@ -4,6 +4,7 @@ import { sendOtpToMail } from "../services/nodemailer.service.mjs";
 const send = async (request, response) => {
     try {
         const { mail } = request.body;
+        console.log(mail)
         if(!mail) return response.status(400).send({ message: "Receiver mail is required" });
         // request.session[mail] = {otp: res.otp, cooldown: Date.now() + 1000 * 20 };
         const otp = await OTPModel.findOne({ mail });

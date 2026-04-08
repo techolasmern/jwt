@@ -1,191 +1,136 @@
 import { useState } from "react";
-import axios from "axios";
+import { api } from "../lib/axios";
+
+const InputField = ({ label, ...props }) => {
+    return <div className="flex flex-col gap-1 w-full">
+        {
+            label && <label className="text-xs font-semibold text-gray-500 ml-1">{label}</label>
+        }
+        <input
+            {...props}
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400"
+        />
+    </div>
+}
 
 export const AuthPage = () => {
     const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
-
+    const [showOtpSection, setShowOtpSection] = useState(false);
     const [loginData, setLoginData] = useState({ username: "", password: "" });
-    const [signUpData, setSignUpData] = useState({
-        name: "",
-        username: "",
-        email: "",
-        phone: "",
-        password: "",
-        confirmPassword: "",
-        otp: "",
-        is_verified: false
-    });
-    const [showVerifyButton, setShowVerifyButton] = useState(false);
+    const [signUpData, setSignUpData] = useState({ name: "", username: "", email: "", phone: "", password: "", confirmPassword: "", otp: "", is_verified: false });
 
-    const handleChangeLoginData = (e) => {
-        setLoginData({ ...loginData, [e.target.name]: e.target.value });
-    };
+    const handleLoginChange = (e) => setLoginData({ ...loginData, [e.target.name]: e.target.value });
+    const handleSignUpChange = (e) => setSignUpData({ ...signUpData, [e.target.name]: e.target.value });
 
-    const handleChangeSignUpData = (e) => {
-        setSignUpData({ ...signUpData, [e.target.name]: e.target.value });
-    };
-
-    const handleSubmitLogin = async (e) => {
+    const onLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const res = await axios.post("http://localhost:8080/api/user/login", loginData);
+            const res = await api.post("/api/user/login", loginData);
             localStorage.setItem("token", res.data.accessToken);
-            alert("Login Successful!");
+            alert("Welcome back!");
         } catch (err) {
-            alert("Login Failed: " + err.response?.data?.message || "Server Error");
+            console.error("Login Error:", err.response?.data?.message);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSubmitSignUp = async (e) => {
+    const onSignUp = async (e) => {
         e.preventDefault();
-        if (signUpData.password !== signUpData.confirmPassword) {
-            return alert("Passwords do not match!");
-        }
+        if (signUpData.password !== signUpData.confirmPassword) return alert("Passwords mismatch");
         setLoading(true);
-        if (!signUpData.is_verified) {
-            await axios.post("http://localhost:8080/otp/send", { mail: signUpData.email });
-            setShowVerifyButton(true);
-            setLoading(false);
-            return alert("Otp sent to your email.");
-        }
         try {
-            await axios.post("http://localhost:8080/api/user/register", signUpData);
-            alert("Registration successful! Please login.");
-            setIsLogin(true);
+            if (!signUpData.is_verified) {
+                await api.post("/otp/send", { mail: signUpData.email });
+                setShowOtpSection(true);
+            } else {
+                await api.post("/api/user/register", signUpData);
+                setIsLogin(true);
+                setSignUpData({ name: "", username: "", email: "", phone: "", password: "", confirmPassword: "", otp: "", is_verified: false });
+            }
         } catch (err) {
-            alert("Registration Failed");
+            console.error("Request Error:", err);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleCheck = async () => {
+    const verifyOtp = async () => {
+        try {
+            await api.post("/otp/verify", { mail: signUpData.email, otp: signUpData.otp });
+            setShowOtpSection(false);
+            setSignUpData(prev => ({ ...prev, is_verified: true }));
+        } catch (err) {
+            alert("Invalid OTP");
+        }
+    };
+
+    const onAuthCheck = async () => {
         try {
             const token = localStorage.getItem("token");
-            const res = await axios.get("http://localhost:8080/api/check", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            alert("Status: " + res.data.message);
-        } catch (err) {
-            alert("Unauthorized or Session Expired");
-        }
-    };
-
-    const handleOtpVerify = async () => {
-        try {
-            await axios.post("http://localhost:8080/otp/verify", { mail: signUpData.email, otp: signUpData.otp });
-            setShowVerifyButton(false);
-            setSignUpData(prev => ({ ...prev, is_verified: true }));
-            alert("Otp verified successfully!");
-        } catch (err) {
-            alert("Otp verification failed: " + err.response?.data?.message || "Server Error");
+            if (!token) return alert("Please login first.");
+            await api.get("/api/check", { headers: { Authorization: `Bearer ${token}` } });
+            return alert("You have valid permissions to access this resource.");
+        } catch (e) {
+            console.log(e.response)
+            return alert("You don't have enough permissions to access this resource.");
         }
     }
 
-    return (
-        <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-            <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
-                {/* Toggle Headers */}
-                <div className="flex mb-8 border-b">
-                    <button
-                        onClick={() => setIsLogin(true)}
-                        className={`flex-1 pb-4 font-semibold transition-colors ${isLogin ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-400"}`}
-                    >
-                        Login
-                    </button>
-                    <button
-                        onClick={() => setIsLogin(false)}
-                        className={`flex-1 pb-4 font-semibold transition-colors ${!isLogin ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-400"}`}
-                    >
-                        Sign Up
-                    </button>
-                </div>
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-slate-800">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
 
-                {isLogin ? (
-                    /* Login Form */
-                    <form onSubmit={handleSubmitLogin} className="space-y-4">
-                        <input
-                            type="text" name="username" placeholder="Username" required
-                            onChange={handleChangeLoginData}
-                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                        <input
-                            type="password" name="password" placeholder="Password" required
-                            onChange={handleChangeLoginData}
-                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                        <button
-                            disabled={loading}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition"
-                        >
-                            {loading ? "Processing..." : "Sign In"}
+            <div className="flex bg-slate-100 p-1 m-4 rounded-xl">
+                <button onClick={() => setIsLogin(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${isLogin ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700"}`}>Login</button>
+                <button
+                    onClick={() => setIsLogin(false)}
+                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${!isLogin ? "bg-white shadow-sm text-blue-600" : "text-slate-500 hover:text-slate-700"}`}>Register</button>
+            </div>
+
+            <div className="p-8 pt-4">
+                <h2 className="text-2xl font-bold mb-2">{isLogin ? "Welcome Back" : "Create Account"}</h2>
+                <p className="text-slate-500 text-sm mb-6">{isLogin ? "Enter your credentials to access your account." : "Join us to get started with your journey."}</p>
+                {
+                    isLogin ? <form onSubmit={onLogin} className="space-y-4">
+                        <InputField value={loginData.username} label="Username" name="username" type="text" placeholder="johndoe" onChange={handleLoginChange} required />
+                        <InputField value={loginData.password} label="Password" name="password" type="password" placeholder="••••••••" onChange={handleLoginChange} required />
+                        <button disabled={loading} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 mt-4">
+                            {loading ? "Signing in..." : "Login"}
+                        </button>
+                    </form> : <form onSubmit={onSignUp} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <InputField value={signUpData.name} label="Full Name" name="name" type="text" placeholder="John" onChange={handleSignUpChange} required />
+                            <InputField value={signUpData.username} label="Username" name="username" type="text" placeholder="johnny" onChange={handleSignUpChange} required />
+                        </div>
+                        <InputField value={signUpData.email} label="Email" name="email" type="email" placeholder="john@example.com" onChange={handleSignUpChange} required />
+                        <InputField value={signUpData.phone} label="Phone" name="phone" type="text" placeholder="+1..." onChange={handleSignUpChange} />
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <InputField value={signUpData.password} label="Password" name="password" type="password" placeholder="••••" onChange={handleSignUpChange} required />
+                            <InputField value={signUpData.confirmPassword} label="Confirm" name="confirmPassword" type="password" placeholder="••••" onChange={handleSignUpChange} required />
+                        </div>
+
+                        {
+                            showOtpSection ? <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 animate-pulse-once">
+                                <p className="text-xs text-orange-700 font-bold mb-2 uppercase">Verify your email</p>
+                                <div className="flex gap-2">
+                                    <input type="text" name="otp" value={signUpData.otp} placeholder="6-digit OTP" onChange={handleSignUpChange} className="flex-1 px-3 py-2 rounded-lg border border-orange-200 outline-none"/>
+                                    <button type="button" onClick={verifyOtp} className="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Verify</button>
+                                </div>
+                                </div> : signUpData.is_verified && <div className="text-center py-2 bg-green-50 text-green-700 rounded-lg text-sm font-medium">✓ Email Verified</div>
+                        }
+                        <button disabled={loading} className={`w-full py-3 rounded-xl font-bold text-white transition-all ${signUpData.is_verified ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                            {loading ? "Loading..." : signUpData.is_verified ? "Complete Registration" : "Send Verification Code"}
                         </button>
                     </form>
-                ) : (
-                    /* Sign Up Form */
-                        <form onSubmit={handleSubmitSignUp} className="space-y-4">
-                            <input
-                                type="text" name="name" placeholder="Name" required
-                                onChange={handleChangeSignUpData}
-                                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
-                        <input
-                            type="text" name="username" placeholder="Username" required
-                            onChange={handleChangeSignUpData}
-                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                        <input
-                            type="email" name="email" placeholder="Email Address" required
-                            onChange={handleChangeSignUpData}
-                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                        <input
-                            type="text" name="phone" placeholder="Phone Number"
-                            onChange={handleChangeSignUpData}
-                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                        <input
-                            type="password" name="password" placeholder="Password" required
-                            onChange={handleChangeSignUpData}
-                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                        <input
-                            type="password" name="confirmPassword" placeholder="Confirm Password" required
-                            onChange={handleChangeSignUpData}
-                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
-                            {
-                                showVerifyButton ? <div className="flex gap-3">
-                                    <input
-                                        type="text" name="otp" placeholder="Enter Otp Sent to Your Email" required
-                                        onChange={handleChangeSignUpData}
-                                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                    />
-                                    <button onClick={handleOtpVerify} className="bg-orange-600 text-white px-3 p-1 rounded-md">Verify</button>
-                                </div> : signUpData.is_verified && <p className="text-green-400">OTP verified successfully!</p>
-                            }
-                        <button
-                            disabled={loading}
-                            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg transition"
-                        >
-                            {loading ? "Creating Account..." : "Register"}
-                        </button>
-                    </form>
-                )}
+                }
+            </div>
 
-                <div className="mt-8 pt-6 border-t">
-                    <button
-                        onClick={handleCheck}
-                        className="w-full border border-gray-300 text-gray-600 py-2 rounded-lg hover:bg-gray-50 transition text-sm"
-                    >
-                        Verify Authentication Status
-                    </button>
-                </div>
+            <div className="p-4 bg-slate-50 border-t flex justify-center">
+                <button onClick={onAuthCheck} className="text-xs font-semibold text-slate-400 hover:text-blue-500 uppercase tracking-widest transition-colors">Check Auth Status</button>
             </div>
         </div>
-    );
+    </div>
 };
