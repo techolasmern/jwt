@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { api } from "../lib/axios";
+import { useNavigate } from "react-router";
+import { toast } from "react-toastify";
+import { storage } from "../lib/storage";
 
 const InputField = ({ label, ...props }) => {
     return <div className="flex flex-col gap-1 w-full">
@@ -20,6 +23,8 @@ export const AuthPage = () => {
     const [loginData, setLoginData] = useState({ username: "", password: "" });
     const [signUpData, setSignUpData] = useState({ name: "", username: "", email: "", phone: "", password: "", confirmPassword: "", otp: "", is_verified: false });
 
+    const navigate = useNavigate();
+
     const handleLoginChange = (e) => setLoginData({ ...loginData, [e.target.name]: e.target.value });
     const handleSignUpChange = (e) => setSignUpData({ ...signUpData, [e.target.name]: e.target.value });
 
@@ -28,10 +33,12 @@ export const AuthPage = () => {
         setLoading(true);
         try {
             const res = await api.post("/api/user/login", loginData);
-            localStorage.setItem("token", res.data.accessToken);
-            alert("Welcome back!");
+            storage.set(res.data.accessToken);
+            setLoginData({ username: "", password: "" });
+            toast.success("Login successful.");
+            navigate("/dashboard");
         } catch (err) {
-            console.error("Login Error:", err.response?.data?.message);
+            toast.error(err.response?.data.message || err.message || "Something went wrong");
         } finally {
             setLoading(false);
         }
@@ -49,9 +56,10 @@ export const AuthPage = () => {
                 await api.post("/api/user/register", signUpData);
                 setIsLogin(true);
                 setSignUpData({ name: "", username: "", email: "", phone: "", password: "", confirmPassword: "", otp: "", is_verified: false });
+                toast.success("Registration successful.");
             }
         } catch (err) {
-            console.error("Request Error:", err);
+            toast.error(err.response?.data.message || err.message || "Something went wrong");
         } finally {
             setLoading(false);
         }
@@ -63,19 +71,18 @@ export const AuthPage = () => {
             setShowOtpSection(false);
             setSignUpData(prev => ({ ...prev, is_verified: true }));
         } catch (err) {
-            alert("Invalid OTP");
+            toast.error(err.response?.data.message || err.message || "Something went wrong");
         }
     };
 
     const onAuthCheck = async () => {
         try {
-            const token = localStorage.getItem("token");
+            const token = storage.get();
             if (!token) return alert("Please login first.");
             await api.get("/api/check", { headers: { Authorization: `Bearer ${token}` } });
             return alert("You have valid permissions to access this resource.");
         } catch (e) {
-            console.log(e.response)
-            return alert("You don't have enough permissions to access this resource.");
+            toast.error(e.response?.data.message || e.message || "Something went wrong");
         }
     }
 

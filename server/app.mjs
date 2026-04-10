@@ -9,6 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/file", express.static("uploads"));
 
 app.use("/api", apiRouter);
 app.use("/otp", otpRouter);

@@ -35,6 +35,35 @@ const user_login = async (request, response) => {
     }
 }
 
+const update_user = async (request, response) => {
+    try {
+        const file = request.file;
+        const user_id = request.body.user_id;
+        const user = await UserModel.findById(user_id);
+        if (!user) {
+            return response.status(404).json({ message: "User not found" });
+        }
+        user.profile_picture = file.filename;
+        await user.save();
+        response.status(200).json({ message: "User updated successfully" });
+    } catch (err) {
+        return response.status(500).json({ message: "Internal server error" });
+    }
+} 
+
+const get_user = async (request, response) => {
+    try {
+        const user_id = request.params.user_id;
+        const user = await UserModel.findById(user_id);
+        if (!user) {
+            return response.status(404).json({ message: "User not found" });
+        }
+        response.status(200).json({ user });
+    } catch (err) {
+        return response.status(500).json({ message: "Internal server error" });
+    }
+}
+
 const check = async (request, response) => {
     return response.status(200).json({ message: "Access granted" });
 }
@@ -42,5 +71,7 @@ const check = async (request, response) => {
 export default {
     create_user,
     user_login,
-    check
+    check,
+    update_user,
+    get_user
 }

@@ -27,6 +27,10 @@ const schema = new mongoose.Schema({
     password: {
         type: String,
         required: true
+    },
+    profile_picture: {
+        type: String,
+        default: null
     }
 }, {
     timestamps: true
