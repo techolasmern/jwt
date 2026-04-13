@@ -2,8 +2,6 @@ import { Fragment, useEffect, useState } from "react";
 import { Header } from "../components/Header";
 import { toast } from "react-toastify";
 import { api } from "../lib/axios";
-import { jwtDecode } from "jwt-decode";
-import { storage } from "../lib/storage";
 import { getUserId } from "../lib/jwt";
 
 export const Dashboard = () => {
@@ -18,8 +16,12 @@ export const Dashboard = () => {
     }, [])
 
     const getUserData = async (uid) => {
-        const res = await api.get("/api/user/" + uid);
-        setUserData(res.data.user);
+        try {
+            const res = await api.get("/api/user/" + uid);
+            setUserData(res.data.user);
+        } catch (err) {
+            return console.log(err.response)
+        }
     }
 
     const handleFileUpload = async (e) => {
@@ -40,7 +42,6 @@ export const Dashboard = () => {
     return <Fragment>
         <Header />
         <form className="flex flex-col items-center justify-center mt-20 p-6 bg-white rounded-xl shadow-sm border border-gray-100 max-w-sm mx-auto">
-            {/* Avatar Container */}
             <div className="relative group">
                 <img
                     src={file ? URL.createObjectURL(file) : `http://localhost:8080/file/${userData?.profile_picture}`}
@@ -48,7 +49,6 @@ export const Dashboard = () => {
                     className="w-24 h-24 rounded-full object-cover border-4 border-indigo-50 shadow-md transition-transform duration-200 group-hover:scale-105"
                 />
 
-                {/* Overlay Label (Acts as the trigger) */}
                 <label
                     htmlFor="file-upload"
                     className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity duration-200"
@@ -62,7 +62,6 @@ export const Dashboard = () => {
                 <p className="text-sm text-gray-500">JPG, PNG or GIF</p>
             </div>
 
-            {/* Hidden Actual Input */}
             <input
                 id="file-upload"
                 type="file"
